@@ -60,7 +60,7 @@
       top: 0;
     }
     #leaders {
-      margin-top: 90px; /* увеличено расстояние */
+      margin-top: 90px;
       font-weight: bold;
     }
   </style>
@@ -110,12 +110,11 @@
       startY = fromRect.top - boardRect.top - 10;
       endX = toRect.left - boardRect.left + toRect.width / 2;
       endY = toRect.top - boardRect.top - 10;
-    } else if (position === 'bottom-detour') {
-      // новая кривая с изгибом мимо клетки 30
+    } else if (position === 'bottom-curve') {
       startX = fromRect.left - boardRect.left + fromRect.width / 2;
-      startY = fromRect.top - boardRect.top + fromRect.height + 10;
+      startY = fromRect.bottom - boardRect.top + 5;
       endX = toRect.left - boardRect.left + toRect.width / 2;
-      endY = toRect.top - boardRect.top + toRect.height + 10;
+      endY = toRect.bottom - boardRect.top + 5;
     }
 
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -129,10 +128,9 @@
     if (position === 'top') {
       const midY = startY - 30;
       d = `M${startX},${startY} C${startX},${midY} ${endX},${midY} ${endX},${endY}`;
-    } else if (position === 'bottom-detour') {
-      const midX = (startX + endX) / 2;
-      const detourY = board.offsetHeight + 100;
-      d = `M${startX},${startY} C${startX},${detourY} ${endX},${detourY} ${endX},${endY}`;
+    } else if (position === 'bottom-curve') {
+      const midY = startY + 40;
+      d = `M${startX},${startY} C${startX},${midY} ${endX},${midY} ${endX},${endY}`;
     }
 
     path.setAttribute("d", d);
@@ -212,7 +210,7 @@
       if (!isNaN(num)) {
         pos += num;
         if (pos === 7) pos = 10;
-        else if (pos === 24) pos = 20;
+        else if (pos === 24) pos = 21; // изменено с 20 на 21
         if (pos > 30) pos = 30;
       }
     }
@@ -241,8 +239,7 @@
     });
 
     drawArrow(7, 10, 'green', 'top');
-    drawArrow(24, 20, 'red', 'bottom-detour');
-
+    drawArrow(24, 21, 'red', 'bottom-curve'); // обновлено
     const maxPos = Math.max(...Object.keys(positionsMap).map(Number));
     if (positionsMap[maxPos]) {
       leadersDiv.innerHTML = `Наши лидеры: ${positionsMap[maxPos].join(', ')}. Так держать!`;
