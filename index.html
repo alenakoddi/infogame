@@ -5,17 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Board Game Sync</title>
   <style>
-    body {
-      display: flex;
-      gap: 20px;
-      font-family: Arial, sans-serif;
-    }
-    .left-side {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 10px;
-    }
+    body { display: flex; flex-direction: column; align-items: flex-start; gap: 20px; font-family: Arial, sans-serif; }
     .board {
       display: grid;
       grid-template-columns: repeat(10, 120px);
@@ -55,35 +45,22 @@
       z-index: 0;
       pointer-events: none;
     }
-    table {
-      border-collapse: collapse;
-      font-size: 12px;
-      max-height: 520px;
-      overflow-y: auto;
-      display: block;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 4px 6px;
-    }
-    th {
-      background: #f0f0f0;
-      position: sticky;
-      top: 0;
-    }
+    table { border-collapse: collapse; font-size: 12px; }
+    th, td { border: 1px solid #ccc; padding: 4px 6px; }
+    th { background: #f0f0f0; position: sticky; top: 0; }
     #leaders {
-      font-weight: bold;
       font-size: 16px;
-      margin-top: 10px;
+      margin-bottom: 10px;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
 
-<div class="left-side">
+<div>
   <button id="refreshBtn">Обновить данные</button>
+  <div id="leaders">Наши лидеры: … Так держать!</div>
   <div class="board" id="board"></div>
-  <div id="leaders"></div>
 </div>
 
 <div>
@@ -99,9 +76,10 @@
   const board = document.getElementById('board');
   const tbody = document.querySelector('#playersTable tbody');
   const refreshBtn = document.getElementById('refreshBtn');
+  const leadersDiv = document.getElementById('leaders');
 
   const cells = [];
-  for (let i = 1; i <= 31; i++) {
+  for (let i = 1; i <= 30; i++) {
     const cell = document.createElement('div');
     cell.className = 'cell';
     const label = document.createElement('div');
@@ -130,7 +108,7 @@
     } else if (position === 'bottom-detour') {
       startX = fromRect.left - boardRect.left + fromRect.width / 2;
       startY = fromRect.top - boardRect.top + fromRect.height + 10;
-      endX = toRect.left - boardRect.left + toRect.width + 10;
+      endX = toRect.left - boardRect.left + toRect.width;
       endY = toRect.top - boardRect.top + toRect.height / 2;
     }
 
@@ -187,7 +165,7 @@
     });
     document.querySelectorAll('.arrow-svg').forEach(a => a.remove());
     tbody.innerHTML = '';
-    document.getElementById('leaders').textContent = '';
+    leadersDiv.textContent = 'Наши лидеры: … Так держать!';
   }
 
   function transformDriveUrl(url) {
@@ -200,7 +178,7 @@
 
   function placeToken(pos, imgSrc, title, indexInCell) {
     if (pos < 1) return;
-    if (pos > 31) pos = 31;
+    if (pos > 30) pos = 30;
     const token = document.createElement('img');
     token.className = 'token';
     token.src = transformDriveUrl(imgSrc);
@@ -228,7 +206,7 @@
         pos += num;
         if (pos === 7) pos = 10;
         else if (pos === 24) pos = 20;
-        if (pos > 31) pos = 31;
+        if (pos > 30) pos = 30;
       }
     }
     return pos;
@@ -236,8 +214,9 @@
 
   function updateFromSheet(data) {
     clearBoardAndTable();
-    const tokenCounts = Array(31).fill(0);
-    const playerPositions = [];
+    const tokenCounts = Array(30).fill(0);
+    let maxPos = 0;
+    const leaders = [];
 
     data.forEach(row => {
       const nickname = row[0];
@@ -246,7 +225,13 @@
       const pos = calculatePosition(rolls);
       const indexInCell = tokenCounts[pos - 1]++;
 
-      playerPositions.push({ nickname, pos });
+      if (pos > maxPos) {
+        maxPos = pos;
+        leaders.length = 0;
+        leaders.push(nickname);
+      } else if (pos === maxPos) {
+        leaders.push(nickname);
+      }
 
       const tr = document.createElement('tr');
       const tdNick = document.createElement('td');
@@ -260,20 +245,10 @@
       placeToken(pos, avatarURL, nickname, indexInCell);
     });
 
-    // Стрелки
     drawArrow(7, 10, 'green', 'top');
     drawArrow(24, 20, 'red', 'bottom-detour');
 
-    // Лидеры
-    const maxPos = Math.max(...playerPositions.map(p => p.pos));
-    const leaders = playerPositions.filter(p => p.pos === maxPos).map(p => p.nickname);
-
-    const leaderDiv = document.getElementById('leaders');
-    if (leaders.length > 0) {
-      leaderDiv.textContent = `Наши лидеры: ${leaders.join(', ')}. Так держать!`;
-    } else {
-      leaderDiv.textContent = '';
-    }
+    leadersDiv.textContent = 'Наши лидеры: ' + leaders.join(', ') + '. Так держать!';
   }
 
   function fetchSheetData() {
