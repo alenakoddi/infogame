@@ -60,7 +60,7 @@
       top: 0;
     }
     #leaders {
-      margin-top: 20px;
+      margin-top: 90px; /* увеличено расстояние */
       font-weight: bold;
     }
   </style>
@@ -111,16 +111,17 @@
       endX = toRect.left - boardRect.left + toRect.width / 2;
       endY = toRect.top - boardRect.top - 10;
     } else if (position === 'bottom-detour') {
+      // новая кривая с изгибом мимо клетки 30
       startX = fromRect.left - boardRect.left + fromRect.width / 2;
       startY = fromRect.top - boardRect.top + fromRect.height + 10;
-      endX = toRect.left - boardRect.left + toRect.width;
-      endY = toRect.top - boardRect.top + toRect.height / 2;
+      endX = toRect.left - boardRect.left + toRect.width / 2;
+      endY = toRect.top - boardRect.top + toRect.height + 10;
     }
 
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("class", "arrow-svg");
-    svg.setAttribute("width", board.offsetWidth);
-    svg.setAttribute("height", board.offsetHeight + 100);
+    svg.setAttribute("width", board.offsetWidth + 200);
+    svg.setAttribute("height", board.offsetHeight + 150);
 
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
 
@@ -129,8 +130,9 @@
       const midY = startY - 30;
       d = `M${startX},${startY} C${startX},${midY} ${endX},${midY} ${endX},${endY}`;
     } else if (position === 'bottom-detour') {
-      const midY = board.offsetHeight + 60;
-      d = `M${startX},${startY} C${startX},${midY} ${endX},${midY} ${endX},${endY}`;
+      const midX = (startX + endX) / 2;
+      const detourY = board.offsetHeight + 100;
+      d = `M${startX},${startY} C${startX},${detourY} ${endX},${detourY} ${endX},${endY}`;
     }
 
     path.setAttribute("d", d);
