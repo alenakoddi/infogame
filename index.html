@@ -1,16 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Board Game Sync</title>
   <style>
-    body { display: flex; flex-direction: column; align-items: flex-start; font-family: Arial, sans-serif; gap: 20px; padding: 20px; }
+    body { display: flex; flex-direction: column; align-items: flex-start; font-family: Arial, sans-serif; }
     .board {
       display: grid;
       grid-template-columns: repeat(10, 120px);
       grid-template-rows: repeat(3, 120px);
       gap: 4px;
+      margin-top: 20px;
       position: relative;
     }
     .cell {
@@ -59,8 +60,8 @@
       top: 0;
     }
     #leaders {
-      font-size: 16px;
-      margin-top: 10px;
+      margin-top: 20px;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -68,7 +69,7 @@
 
   <button id="refreshBtn">Обновить данные</button>
   <div class="board" id="board"></div>
-  <div id="leaders">Наши лидеры: <span id="leaderList"></span>. Так держать!</div>
+  <div id="leaders"></div>
   <table id="playersTable">
     <thead>
       <tr><th>Nickname</th><th>Rolls</th></tr>
@@ -80,7 +81,7 @@
   const board = document.getElementById('board');
   const tbody = document.querySelector('#playersTable tbody');
   const refreshBtn = document.getElementById('refreshBtn');
-  const leaderList = document.getElementById('leaderList');
+  const leadersDiv = document.getElementById('leaders');
 
   const cells = [];
   for (let i = 1; i <= 30; i++) {
@@ -119,7 +120,7 @@
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("class", "arrow-svg");
     svg.setAttribute("width", board.offsetWidth);
-    svg.setAttribute("height", board.offsetHeight);
+    svg.setAttribute("height", board.offsetHeight + 100);
 
     const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
 
@@ -128,7 +129,7 @@
       const midY = startY - 30;
       d = `M${startX},${startY} C${startX},${midY} ${endX},${midY} ${endX},${endY}`;
     } else if (position === 'bottom-detour') {
-      const midY = board.offsetHeight + 10; // стрелка ближе к полю
+      const midY = board.offsetHeight + 60;
       d = `M${startX},${startY} C${startX},${midY} ${endX},${midY} ${endX},${endY}`;
     }
 
@@ -169,7 +170,7 @@
     });
     document.querySelectorAll('.arrow-svg').forEach(a => a.remove());
     tbody.innerHTML = '';
-    leaderList.textContent = '';
+    leadersDiv.innerHTML = '';
   }
 
   function transformDriveUrl(url) {
@@ -219,7 +220,7 @@
   function updateFromSheet(data) {
     clearBoardAndTable();
     const tokenCounts = Array(30).fill(0);
-    const playerPositions = [];
+    const positionsMap = {};
 
     data.forEach(row => {
       const nickname = row[0];
@@ -227,22 +228,23 @@
       const rolls = row.slice(2);
       const pos = calculatePosition(rolls);
       const indexInCell = tokenCounts[pos - 1]++;
+      placeToken(pos, avatarURL, nickname, indexInCell);
 
       const tr = document.createElement('tr');
       tr.innerHTML = `<td>${nickname}</td><td>${rolls.join(', ')}</td>`;
       tbody.appendChild(tr);
 
-      placeToken(pos, avatarURL, nickname, indexInCell);
-      playerPositions.push({ nickname, pos });
+      if (!positionsMap[pos]) positionsMap[pos] = [];
+      positionsMap[pos].push(nickname);
     });
 
     drawArrow(7, 10, 'green', 'top');
     drawArrow(24, 20, 'red', 'bottom-detour');
 
-    // определяем лидеров
-    const maxPos = Math.max(...playerPositions.map(p => p.pos));
-    const leaders = playerPositions.filter(p => p.pos === maxPos).map(p => p.nickname);
-    leaderList.textContent = leaders.join(', ');
+    const maxPos = Math.max(...Object.keys(positionsMap).map(Number));
+    if (positionsMap[maxPos]) {
+      leadersDiv.innerHTML = `Наши лидеры: ${positionsMap[maxPos].join(', ')}. Так держать!`;
+    }
   }
 
   function fetchSheetData() {
