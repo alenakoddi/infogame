@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Board Game Sync</title>
+  <style>
+    body {
+      display: flex;
+      gap: 20px;
+      font-family: Arial, sans-serif;
+    }
+    .left-side {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(10, 120px);
+      grid-template-rows: repeat(4, 120px);
+      gap: 4px;
+      margin-top: 20px;
+      position: relative;
+    }
+    .cell {
+      width: 120px;
+      height: 120px;
+      border: 1px solid #ccc;
+      position: relative;
+      font-size: 16px;
+      font-weight: bold;
+      padding: 4px;
+      box-sizing: border-box;
+    }
+    .cell-number {
+      position: absolute;
+      bottom: 4px;
+      right: 6px;
+      font-size: 14px;
+      color: #666;
+    }
+    .token {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      position: absolute;
+      object-fit: cover;
+      border: 1px solid #000;
+    }
+    .arrow-svg {
+      position: absolute;
+      overflow: visible;
+      z-index: 0;
+      pointer-events: none;
+    }
+    table {
+      border-collapse: collapse;
+      font-size: 12px;
+      max-height: 520px;
+      overflow-y: auto;
+      display: block;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 4px 6px;
+    }
+    th {
+      background: #f0f0f0;
+      position: sticky;
+      top: 0;
+    }
+    #leaders {
+      font-weight: bold;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="left-side">
+  <button id="refreshBtn">Обновить данные</button>
+  <div class="board" id="board"></div>
+  <div id="leaders"></div>
+</div>
+
+<div>
+  <table id="playersTable">
+    <thead>
+      <tr><th>Nickname</th><th>Rolls</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<script>
+  const board = document.getElementById('board');
+  const tbody = document.querySelector('#playersTable tbody');
+  const refreshBtn = document.getElementById('refreshBtn');
+
+  const cells = [];
+  for (let i = 1; i <= 31; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    const label = document.createElement('div');
+    label.className = 'cell-number';
+    label.textContent = i;
+    cell.appendChild(label);
+    board.appendChild(cell);
+    cells.push(cell);
+  }
+
+  function drawArrow(from, to, color, position = 'top') {
+    const fromCell = cells[from - 1];
+    const toCell = cells[to - 1];
+
+    const boardRect = board.getBoundingClientRect();
+    const fromRect = fromCell.getBoundingClientRect();
+    const toRect = toCell.getBoundingClientRect();
+
+    let startX, startY, endX, endY;
+
+    if (position === 'top') {
+      startX = fromRect.left - boardRect.left + fromRect.width / 2;
+      startY = fromRect.top - boardRect.top - 10;
+      endX = toRect.left - boardRect.left + toRect.width / 2;
+      endY = toRect.top - boardRect.top - 10;
+    } else if (position === 'bottom-detour') {
+      startX = fromRect.left - boardRect.left + fromRect.width / 2;
+      startY = fromRect.top - boardRect.top + fromRect.height + 10;
+      endX = toRect.left - boardRect.left + toRect.width + 10;
+      endY = toRect.top - boardRect.top + toRect.height / 2;
+    }
+
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("class", "arrow-svg");
+    svg.setAttribute("width", board.offsetWidth);
+    svg.setAttribute("height", board.offsetHeight);
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+    let d;
+    if (position === 'top') {
+      const midY = startY - 30;
+      d = `M${startX},${startY} C${startX},${midY} ${endX},${midY} ${endX},${endY}`;
+    } else if (position === 'bottom-detour') {
+      const midY = board.offsetHeight + 40;
+      d = `M${startX},${startY} C${startX},${midY} ${endX},${midY} ${endX},${endY}`;
+    }
+
+    path.setAttribute("d", d);
+    path.setAttribute("stroke", color);
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke-width", "2");
+
+    const marker = document.createElementNS("http://www.w3.org/2000/svg", "marker");
+    marker.setAttribute("id", "arrowhead-" + color);
+    marker.setAttribute("markerWidth", "10");
+    marker.setAttribute("markerHeight", "7");
+    marker.setAttribute("refX", "0");
+    marker.setAttribute("refY", "3.5");
+    marker.setAttribute("orient", "auto");
+    marker.setAttribute("markerUnits", "strokeWidth");
+
+    const arrowPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    arrowPath.setAttribute("d", "M0,0 L0,7 L10,3.5 z");
+    arrowPath.setAttribute("fill", color);
+    marker.appendChild(arrowPath);
+
+    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    defs.appendChild(marker);
+    svg.appendChild(defs);
+    path.setAttribute("marker-end", `url(#arrowhead-${color})`);
+
+    svg.appendChild(path);
+    board.appendChild(svg);
+  }
+
+  const sheetId = '1RpKqneUTvTJPetAc2jV6YTl7-qZBejJZCLUr3C95ffg';
+  const queryURL = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:json&tq=select+A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,AB,AC,AD,AE,AF&sheet=Sheet1`;
+
+  function clearBoardAndTable() {
+    cells.forEach((cell, i) => {
+      cell.innerHTML = `<div class="cell-number">${i + 1}</div>`;
+    });
+    document.querySelectorAll('.arrow-svg').forEach(a => a.remove());
+    tbody.innerHTML = '';
+    document.getElementById('leaders').textContent = '';
+  }
+
+  function transformDriveUrl(url) {
+    const driveMatch = url.match(/https?:\/\/drive\.google\.com\/file\/d\/([^\/]+)\/view.*/);
+    if (driveMatch) {
+      return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+    }
+    return url;
+  }
+
+  function placeToken(pos, imgSrc, title, indexInCell) {
+    if (pos < 1) return;
+    if (pos > 31) pos = 31;
+    const token = document.createElement('img');
+    token.className = 'token';
+    token.src = transformDriveUrl(imgSrc);
+    token.title = title;
+    token.onerror = () => {
+      token.src = 'https://via.placeholder.com/22?text=?';
+    };
+    const cell = cells[pos - 1];
+
+    const cols = 5;
+    const row = Math.floor(indexInCell / cols);
+    const col = indexInCell % cols;
+    const spacing = 22;
+
+    token.style.left = `${6 + col * spacing}px`;
+    token.style.top = `${6 + row * spacing}px`;
+    cell.appendChild(token);
+  }
+
+  function calculatePosition(rolls) {
+    let pos = 0;
+    for (let val of rolls) {
+      const num = parseInt(val);
+      if (!isNaN(num)) {
+        pos += num;
+        if (pos === 7) pos = 10;
+        else if (pos === 24) pos = 20;
+        if (pos > 31) pos = 31;
+      }
+    }
+    return pos;
+  }
+
+  function updateFromSheet(data) {
+    clearBoardAndTable();
+    const tokenCounts = Array(31).fill(0);
+    const playerPositions = [];
+
+    data.forEach(row => {
+      const nickname = row[0];
+      const avatarURL = row[1];
+      const rolls = row.slice(2);
+      const pos = calculatePosition(rolls);
+      const indexInCell = tokenCounts[pos - 1]++;
+
+      playerPositions.push({ nickname, pos });
+
+      const tr = document.createElement('tr');
+      const tdNick = document.createElement('td');
+      tdNick.textContent = nickname;
+      const tdRolls = document.createElement('td');
+      tdRolls.textContent = rolls.join(', ');
+      tr.appendChild(tdNick);
+      tr.appendChild(tdRolls);
+      tbody.appendChild(tr);
+
+      placeToken(pos, avatarURL, nickname, indexInCell);
+    });
+
+    // Стрелки
+    drawArrow(7, 10, 'green', 'top');
+    drawArrow(24, 20, 'red', 'bottom-detour');
+
+    // Лидеры
+    const maxPos = Math.max(...playerPositions.map(p => p.pos));
+    const leaders = playerPositions.filter(p => p.pos === maxPos).map(p => p.nickname);
+
+    const leaderDiv = document.getElementById('leaders');
+    if (leaders.length > 0) {
+      leaderDiv.textContent = `Наши лидеры: ${leaders.join(', ')}. Так держать!`;
+    } else {
+      leaderDiv.textContent = '';
+    }
+  }
+
+  function fetchSheetData() {
+    fetch(queryURL)
+      .then(response => response.text())
+      .then(text => {
+        const jsonStr = text.match(/(?<=google\.visualization\.Query\.setResponse\().*(?=\);)/s)[0];
+        const json = JSON.parse(jsonStr);
+        const rows = json.table.rows.map(r => r.c.map(cell => cell ? cell.v : ''));
+        updateFromSheet(rows);
+      })
+      .catch(err => alert('Ошибка при загрузке данных из Google Sheets: ' + err));
+  }
+
+  refreshBtn.addEventListener('click', fetchSheetData);
+  fetchSheetData();
+  setInterval(fetchSheetData, 10000);
+</script>
+
+</body>
+</html>
