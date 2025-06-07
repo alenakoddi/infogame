@@ -5,13 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Board Game Sync</title>
   <style>
-    body { display: flex; flex-direction: column; align-items: flex-start; gap: 20px; font-family: Arial, sans-serif; }
+    body { display: flex; flex-direction: column; align-items: flex-start; font-family: Arial, sans-serif; gap: 20px; padding: 20px; }
     .board {
       display: grid;
       grid-template-columns: repeat(10, 120px);
-      grid-template-rows: repeat(4, 120px);
+      grid-template-rows: repeat(3, 120px);
       gap: 4px;
-      margin-top: 20px;
       position: relative;
     }
     .cell {
@@ -45,38 +44,43 @@
       z-index: 0;
       pointer-events: none;
     }
-    table { border-collapse: collapse; font-size: 12px; }
-    th, td { border: 1px solid #ccc; padding: 4px 6px; }
-    th { background: #f0f0f0; position: sticky; top: 0; }
+    table {
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 4px 6px;
+    }
+    th {
+      background: #f0f0f0;
+      position: sticky;
+      top: 0;
+    }
     #leaders {
       font-size: 16px;
-      margin-bottom: 10px;
-      font-weight: bold;
+      margin-top: 10px;
     }
   </style>
 </head>
 <body>
 
-<div>
   <button id="refreshBtn">Обновить данные</button>
-  <div id="leaders">Наши лидеры: … Так держать!</div>
   <div class="board" id="board"></div>
-</div>
-
-<div>
+  <div id="leaders">Наши лидеры: <span id="leaderList"></span>. Так держать!</div>
   <table id="playersTable">
     <thead>
       <tr><th>Nickname</th><th>Rolls</th></tr>
     </thead>
     <tbody></tbody>
   </table>
-</div>
 
 <script>
   const board = document.getElementById('board');
   const tbody = document.querySelector('#playersTable tbody');
   const refreshBtn = document.getElementById('refreshBtn');
-  const leadersDiv = document.getElementById('leaders');
+  const leaderList = document.getElementById('leaderList');
 
   const cells = [];
   for (let i = 1; i <= 30; i++) {
@@ -124,7 +128,7 @@
       const midY = startY - 30;
       d = `M${startX},${startY} C${startX},${midY} ${endX},${midY} ${endX},${endY}`;
     } else if (position === 'bottom-detour') {
-      const midY = board.offsetHeight + 40;
+      const midY = board.offsetHeight + 10; // стрелка ближе к полю
       d = `M${startX},${startY} C${startX},${midY} ${endX},${midY} ${endX},${endY}`;
     }
 
@@ -165,7 +169,7 @@
     });
     document.querySelectorAll('.arrow-svg').forEach(a => a.remove());
     tbody.innerHTML = '';
-    leadersDiv.textContent = 'Наши лидеры: … Так держать!';
+    leaderList.textContent = '';
   }
 
   function transformDriveUrl(url) {
@@ -215,8 +219,7 @@
   function updateFromSheet(data) {
     clearBoardAndTable();
     const tokenCounts = Array(30).fill(0);
-    let maxPos = 0;
-    const leaders = [];
+    const playerPositions = [];
 
     data.forEach(row => {
       const nickname = row[0];
@@ -225,30 +228,21 @@
       const pos = calculatePosition(rolls);
       const indexInCell = tokenCounts[pos - 1]++;
 
-      if (pos > maxPos) {
-        maxPos = pos;
-        leaders.length = 0;
-        leaders.push(nickname);
-      } else if (pos === maxPos) {
-        leaders.push(nickname);
-      }
-
       const tr = document.createElement('tr');
-      const tdNick = document.createElement('td');
-      tdNick.textContent = nickname;
-      const tdRolls = document.createElement('td');
-      tdRolls.textContent = rolls.join(', ');
-      tr.appendChild(tdNick);
-      tr.appendChild(tdRolls);
+      tr.innerHTML = `<td>${nickname}</td><td>${rolls.join(', ')}</td>`;
       tbody.appendChild(tr);
 
       placeToken(pos, avatarURL, nickname, indexInCell);
+      playerPositions.push({ nickname, pos });
     });
 
     drawArrow(7, 10, 'green', 'top');
     drawArrow(24, 20, 'red', 'bottom-detour');
 
-    leadersDiv.textContent = 'Наши лидеры: ' + leaders.join(', ') + '. Так держать!';
+    // определяем лидеров
+    const maxPos = Math.max(...playerPositions.map(p => p.pos));
+    const leaders = playerPositions.filter(p => p.pos === maxPos).map(p => p.nickname);
+    leaderList.textContent = leaders.join(', ');
   }
 
   function fetchSheetData() {
